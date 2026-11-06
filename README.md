@@ -4,6 +4,13 @@
 
 纯前端单文件，**双击 `index.html` 就能用**，不需要服务器、不需要安装任何东西。
 
+> ### 推荐
+> 如果你需要更完整的工作流（颜色转换 **+ 在线像素编辑器**），推荐使用
+> **[CoralHymn/Wplace-Master](https://github.com/CoralHymn/Wplace-Master)**
+> —— 在线版：<https://master.wplace.icu/>
+>
+> 本项目是一个单文件、可完全离线使用的轻量版本，适合只想快速把图片转换成色板模板的场景。
+
 ## 功能
 
 | 步骤 | 说明 |
