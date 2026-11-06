@@ -1,0 +1,2356 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>更好的Wplace颜色转换器</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap');
+
+        :root {
+            --primary-color: #007bff;
+            --primary-hover: #0056b3;
+            --background-color: #f0f2f5;
+            --surface-color: #ffffff;
+            --text-color: #333;
+            --muted-color: #6c757d;
+            --border-color: #dee2e6;
+            --shadow: 0 4px 12px rgba(0,0,0,0.08);
+            --shadow-lg: 0 8px 25px rgba(0,0,0,0.1);
+        }
+
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            margin: 0;
+            background: var(--background-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        #controls-panel {
+            width: 500px;
+            background: var(--surface-color);
+            padding: 1.5em 2em;
+            overflow-y: auto;
+            border-right: 1px solid var(--border-color);
+            box-shadow: var(--shadow);
+            z-index: 10;
+        }
+
+        #preview-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 2em;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        h1, h2 {
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-top: 0;
+        }
+        
+        h1 { font-size: 1.8em; margin-bottom: 1em; }
+        h2 { font-size: 1.2em; margin-bottom: 1em; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5em;}
+
+        .control-group {
+            margin-bottom: 1.8em;
+        }
+
+        .control-group label {
+            font-weight: 500;
+            margin-bottom: 0.75em;
+            display: block;
+        }
+
+        .palette-container {
+            display: flex;
+            flex-direction: column;
+            gap: 2em;
+        }
+
+        .palette-section {
+            border: none;
+            border-radius: 0;
+            padding: 0;
+            background: transparent;
+        }
+
+        .palette-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1em;
+        }
+
+        .palette-title {
+            font-weight: 600;
+            font-size: 1em;
+        }
+
+        .select-all-btn {
+            padding: 0.3em 0.8em;
+            border: 1px solid var(--primary-color);
+            background: transparent;
+            color: var(--primary-color);
+            border-radius: 15px;
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: all 0.2s;
+        }
+
+        .select-all-btn:hover {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .palette-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            max-height: none;
+            overflow-y: visible;
+        }
+
+        .dither-selector {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5em;
+        }
+
+        .dither-selector button {
+            padding: 0.5em 1em;
+            border: 1px solid var(--border-color);
+            background: transparent;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .dither-selector button.active {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        .color-swatch {
+            width: 22px;
+            height: 22px;
+            border-radius: 4px;
+            border: 2px solid white;
+            box-shadow: 0 0 0 1px var(--border-color);
+            cursor: pointer;
+            position: relative;
+            transition: transform 0.2s, opacity 0.2s;
+        }
+        .color-swatch:hover {
+            transform: scale(1.1);
+        }
+
+        .color-swatch .tooltip-text {
+            visibility: hidden;
+            width: 140px;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px;
+            position: absolute;
+            z-index: 99999;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -70px;
+            opacity: 0;
+            transition: opacity 0.2s;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+
+        .color-swatch:hover .tooltip-text {
+            visibility: visible;
+            opacity: 0.9;
+        }
+
+        /* 像素悬浮提示框样式 */
+        .pixel-tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+            pointer-events: none;
+            z-index: 10000;
+            white-space: nowrap;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            transform: translate(-50%, -100%);
+            margin-top: -8px;
+            opacity: 0;
+            transition: opacity 0.15s ease-out;
+        }
+
+        .pixel-tooltip.visible {
+            opacity: 1;
+        }
+
+        .pixel-tooltip .color-preview-small {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border-radius: 3px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
+        .color-swatch.deselected {
+            opacity: 0.4;
+        }
+
+        .color-swatch.deselected::after {
+            content: '×';
+            position: absolute;
+            color: white;
+            font-weight: bold;
+            font-size: 20px;
+            line-height: 20px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-shadow: 0 0 2px black, 0 0 2px black;
+        }
+
+        .file-input-wrapper {
+            width: 100%;
+            height: 120px;
+            border: 2px dashed var(--border-color);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            background-size: contain;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+        .file-input-wrapper:hover { border-color: var(--primary-color); }
+        .file-input-wrapper.has-file {
+            border-style: solid;
+            border-color: var(--primary-color);
+        }
+        .file-input-wrapper span {
+            background: rgba(255,255,255,0.8);
+            padding: 0.2em 0.5em;
+            border-radius: 4px;
+        }
+        input[type="file"] {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .slider-group label, .size-inputs label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        input[type="range"] { width: 100%; }
+        .size-inputs {
+            display: flex;
+            gap: 1em;
+            align-items: center;
+            margin-top: 0.5em;
+        }
+        .size-inputs div {
+            display: flex;
+            align-items: center;
+            gap: 0.5em;
+        }
+        .size-inputs input {
+            width: 60px;
+            padding: 0.3em;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+        }
+        
+        /* 总像素输入框需要更宽以显示大数字 */
+        #pixel-count {
+            width: 100px !important;
+        }
+
+        #color-stats-container {
+            margin-top: 1em;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+            padding: 1em;
+            border-radius: 4px;
+            background: #fdfdfd;
+        }
+        .color-stat-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.5em;
+            font-size: 0.9em;
+        }
+        .color-stat-swatch {
+            width: 18px;
+            height: 18px;
+            border-radius: 3px;
+            margin-right: 10px;
+            border: 1px solid var(--border-color);
+            flex-shrink: 0;
+        }
+        .color-stat-name {
+            flex-grow: 1;
+        }
+        .color-stat-count {
+            font-weight: 500;
+            white-space: nowrap;
+        }
+
+        #preview-canvas-viewport {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            cursor: grab;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background: white;
+            box-shadow: var(--shadow-lg);
+        }
+        
+        #preview-canvas {
+            display: block;
+            transition: transform 0.1s ease-out;
+            transform-origin: center;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: -webkit-crisp-edges;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+
+        #placeholder-text {
+            color: var(--muted-color);
+            text-align: center;
+            font-size: 1.2em;
+        }
+        
+        .preview-controls {
+            position: absolute;
+            bottom: 2em;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255,255,255,0.9);
+            padding: 0.5em 1em;
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            display: flex;
+            align-items: center;
+            gap: 1em;
+            z-index: 20;
+        }
+
+        #download-btn {
+            position: absolute;
+            bottom: 6em;
+            right: 2em;
+            padding: 1em 1.5em;
+            font-size: 1em;
+            font-weight: 700;
+            color: #fff;
+            background-color: var(--primary-color);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            box-shadow: var(--shadow);
+            display: none;
+        }
+        #download-btn:hover { background-color: var(--primary-hover); }
+        #download-btn:disabled {
+            background-color: #e9ecef;
+            color: var(--muted-color);
+            cursor: not-allowed;
+        }
+
+        footer {
+            position: fixed;
+            bottom: 1em;
+            right: 1em;
+            font-size: 0.75em;
+            color: var(--muted-color);
+            text-align: right;
+            z-index: 100;
+        }
+        footer a {
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+        footer a:hover { text-decoration: underline; }
+        
+        /* 颜色选择和替换功能样式 */
+        .color-replacement-section {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5em;
+            background: #fdfdfd;
+        }
+        
+        .color-picker-mode {
+            margin-bottom: 1em;
+        }
+        
+        .mode-description {
+            font-size: 0.9em;
+            color: var(--muted-color);
+            margin: 0.5em 0 0 0;
+        }
+        
+        .selected-color-display {
+            margin: 1em 0;
+            padding: 1em;
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+        }
+        
+        .selected-color-info {
+            display: flex;
+            align-items: center;
+            gap: 0.8em;
+        }
+        
+        .color-preview {
+            width: 30px;
+            height: 30px;
+            border-radius: 4px;
+            border: 2px solid var(--border-color);
+            display: inline-block;
+        }
+        
+        .replacement-color-section {
+            margin: 1em 0;
+            padding: 1em;
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+        }
+        
+        .replacement-palette-tabs {
+            display: flex;
+            gap: 0.5em;
+            margin-bottom: 1em;
+        }
+        
+        .tab-btn {
+            padding: 0.5em 1em;
+            border: 1px solid var(--border-color);
+            background: transparent;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .tab-btn.active {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+        
+        .replacement-palette-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 1em;
+            max-height: 150px;
+            overflow-y: auto;
+            padding: 0.5em;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+        }
+        
+        .replacement-palette-grid .color-swatch {
+            cursor: pointer;
+            position: relative;
+        }
+        
+        .replacement-palette-grid .color-swatch.selected {
+            border: 3px solid var(--primary-color);
+            transform: scale(1.1);
+        }
+        
+        .replacement-actions {
+            display: flex;
+            gap: 0.5em;
+            flex-wrap: wrap;
+        }
+        
+        .replacement-actions button {
+            padding: 0.5em 1em;
+            border: 1px solid var(--border-color);
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .replacement-actions button:hover {
+            background: var(--background-color);
+        }
+        
+        .replacement-actions button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        #apply-replacement-btn {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+        
+        #apply-replacement-btn:hover:not(:disabled) {
+            background: var(--primary-hover);
+        }
+        
+        .replacement-list {
+            margin-top: 1em;
+        }
+        
+        .replacement-items {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .replacement-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.8em;
+            margin-bottom: 0.5em;
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+        }
+        
+        .replacement-mapping {
+            display: flex;
+            align-items: center;
+            gap: 0.8em;
+        }
+        
+        .replacement-arrow {
+            color: var(--muted-color);
+            font-weight: bold;
+        }
+        
+        .remove-replacement-btn {
+            padding: 0.3em 0.6em;
+            border: 1px solid #dc3545;
+            background: transparent;
+            color: #dc3545;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8em;
+        }
+        
+        .remove-replacement-btn:hover {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .no-replacements {
+            color: var(--muted-color);
+            font-style: italic;
+            text-align: center;
+            padding: 1em;
+        }
+        
+        /* 图像点击模式样式 */
+        #preview-canvas.color-picker-active {
+            cursor: crosshair !important;
+        }
+    </style>
+    
+    <!-- 多语言支持 -->
+    <div id="language-selector" style="position: fixed; top: 20px; right: 20px; z-index: 1000; background: white; padding: 10px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <select id="language-select" style="border: 1px solid #ddd; padding: 5px; border-radius: 4px;">
+            <option value="zh">中文</option>
+            <option value="ru">Русский</option>
+            <option value="en">English</option>
+            <option value="ja">日本語</option>
+        </select>
+    </div>
+</head>
+<body>
+
+<div class="main-container">
+    <div id="controls-panel">
+        <h1>Wplace像素色彩转换器</h1>
+
+        <div class="control-group">
+            <h2>1. 选择调色板</h2>
+            <div class="palette-container">
+                <div class="palette-section">
+                    <div class="palette-header">
+                        <span class="palette-title">免费调色板</span>
+                        <button class="select-all-btn" id="free-select-all">全选</button>
+                    </div>
+                    <div class="palette-grid" id="free-palette-grid"></div>
+                </div>
+                
+                <div class="palette-section">
+                    <div class="palette-header">
+                        <span class="palette-title">付费调色板</span>
+                        <button class="select-all-btn" id="paid-select-all">全选</button>
+                    </div>
+                    <div class="palette-grid" id="paid-palette-grid"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <h2>2. 上传图片</h2>
+            <div class="file-input-wrapper" id="input-wrapper">
+                <input type="file" id="input-file" accept="image/*">
+                <span id="input-text">点击或拖拽图片</span>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <h2>3. 调整参数</h2>
+            <div class="slider-group">
+                <label for="dither-strength">抖动强度: <span id="dither-strength-value">100%</span></label>
+                <input type="range" id="dither-strength" min="0" max="100" value="100">
+            </div>
+            <div class="slider-group">
+                <label for="dither-scale">抖动倍率: <span id="dither-scale-value">1倍</span></label>
+                <select id="dither-scale">
+                    <option value="1">1倍</option>
+                    <option value="2">2倍</option>
+                    <option value="4">4倍</option>
+                </select>
+            </div>
+            <div class="slider-group">
+                <label for="image-size">图片尺寸: <span id="image-size-value">100%</span></label>
+                <input type="range" id="image-size" min="10" max="200" value="100">
+            </div>
+            <div class="size-inputs">
+                <div><label for="image-width">宽:</label><input type="number" id="image-width"></div>
+                <div><label for="image-height">高:</label><input type="number" id="image-height"></div>
+            </div>
+            <div class="size-inputs" style="margin-top: 0.5em;">
+                <div><label for="pixel-count">总像素:</label><input type="number" id="pixel-count" min="10" max="1000000"></div>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <h2>4. 选择算法</h2>
+            <div id="dither-selector" class="dither-selector"></div>
+        </div>
+
+        <div class="control-group">
+            <h2>图像颜色统计</h2>
+            <div id="color-stats-container">
+                <p>处理图片后在此显示颜色用量。</p>
+            </div>
+        </div>
+        <div class="control-group">
+            <label>
+                <input type="checkbox" id="lock-colors-checkbox">
+                锁定颜色
+            </label>
+        </div>
+        
+        <div class="control-group">
+            <h2>5. 颜色选择与替换</h2>
+            <div class="color-replacement-section">
+                <div class="color-picker-mode">
+                    <label>
+                        <input type="checkbox" id="color-picker-mode">
+                        启用颜色选择模式
+                    </label>
+                    <p class="mode-description">启用后，点击图像可选择要替换的颜色</p>
+                </div>
+                
+                <div class="selected-color-display" id="selected-color-display" style="display: none;">
+                    <div class="selected-color-info">
+                        <span>已选择颜色:</span>
+                        <div class="color-preview" id="selected-color-preview"></div>
+                        <span id="selected-color-name">未选择</span>
+                    </div>
+                </div>
+                
+                <div class="replacement-color-section" id="replacement-color-section" style="display: none;">
+                    <h3>选择替换颜色</h3>
+                    <div class="replacement-palette-tabs">
+                        <button class="tab-btn active" data-tab="free">免费颜色</button>
+                        <button class="tab-btn" data-tab="paid">付费颜色</button>
+                    </div>
+                    <div class="replacement-palette-grid" id="replacement-free-grid"></div>
+                    <div class="replacement-palette-grid" id="replacement-paid-grid" style="display: none;"></div>
+                    
+                    <div class="replacement-actions">
+                        <button id="apply-replacement-btn" disabled>应用替换</button>
+                        <button id="clear-replacement-btn">清除替换</button>
+                        <button id="reset-all-replacements-btn">重置所有替换</button>
+                    </div>
+                </div>
+                
+                <div class="replacement-list" id="replacement-list">
+                    <h3>当前替换映射</h3>
+                    <div class="replacement-items" id="replacement-items">
+                        <p class="no-replacements">暂无颜色替换</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="control-group">
+            <button id="export-selection-btn">导出选区</button>
+        </div>
+    </div>
+
+    <div id="preview-panel">
+        <div id="preview-canvas-viewport" style="display: none;">
+            <canvas id="preview-canvas"></canvas>
+        </div>
+        <p id="placeholder-text">请先上传一张图片</p>
+        
+        <div class="preview-controls" style="display: none;">
+            <label for="zoom-slider">缩放:</label>
+            <input type="range" id="zoom-slider" min="20" max="500" value="100">
+            <span id="zoom-value">100%</span>
+        </div>
+
+        <button id="download-btn" disabled>下载当前效果图</button>
+    </div>
+</div>
+
+<footer>
+    <p>
+        源码来自 <a href="https://github.com/PRTSSourceCode/ColorDitherer" target="_blank">ColorDitherer</a>，
+        感谢【P.R.T.S Alliance】Discord群组
+    </p>
+    <p>由【三文鱼、肉意思】制作</p>
+</footer>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // --- 多语言支持 ---
+    const TRANSLATIONS = {
+        zh: {
+            title: "更好的Wplace颜色转换器",
+            selectPalette: "1. 选择调色板",
+            freePalette: "免费调色板",
+            paidPalette: "付费调色板",
+            selectAll: "全选",
+            deselectAll: "取消全选",
+            uploadImage: "2. 上传图片",
+            clickOrDrag: "点击或拖拽图片",
+            adjustParams: "3. 调整参数",
+            ditherStrength: "抖动强度",
+            imageSize: "图片尺寸",
+            width: "宽",
+            height: "高",
+            totalPixels: "总像素",
+            selectAlgorithm: "4. 选择算法",
+            colorStats: "图像颜色统计",
+            processImageFirst: "处理图片后在此显示颜色用量。",
+            uploadImageFirst: "请先上传一张图片",
+            zoom: "缩放",
+            downloadCurrent: "下载当前效果图",
+            noColorsDetected: "未在图像中检测到已选颜色。",
+            footerSource: "源码来自",
+            footerThanks: "感谢【P.R.T.S Alliance】Discord群组",
+            footerCustom: "由【三文鱼、肉意思】制作",
+            // 颜色选择和替换功能翻译
+            enableColorPicker: "启用颜色选择模式",
+            selectedColor: "已选择颜色",
+            replacementColor: "替换颜色",
+            freeColors: "免费颜色",
+            paidColors: "付费颜色",
+            applyReplacement: "应用替换",
+            clearSelection: "清除选择",
+            resetAllReplacements: "重置所有替换",
+            currentReplacements: "当前替换映射",
+            noReplacements: "暂无颜色替换",
+            remove: "删除",
+            clickImageToSelectColor: "点击图像选择颜色"
+        },
+        ru: {
+            title: "Лучший конвертер цветов Wplace",
+            selectPalette: "1. Выберите палитру",
+            freePalette: "Бесплатная палитра",
+            paidPalette: "Платная палитра",
+            selectAll: "Выбрать все",
+            deselectAll: "Отменить выбор",
+            uploadImage: "2. Загрузить изображение",
+            clickOrDrag: "Нажмите или перетащите изображение",
+            adjustParams: "3. Настроить параметры",
+            ditherStrength: "Сила дизеринга",
+            imageSize: "Размер изображения",
+            width: "Ширина",
+            height: "Высота",
+            totalPixels: "Всего пикселей",
+            selectAlgorithm: "4. Выберите алгоритм",
+            colorStats: "Статистика цветов изображения",
+            processImageFirst: "Статистика цветов будет показана после обработки изображения.",
+            uploadImageFirst: "Пожалуйста, сначала загрузите изображение",
+            zoom: "Масштаб",
+            downloadCurrent: "Скачать текущий результат",
+            noColorsDetected: "В изображении не обнаружено выбранных цветов.",
+            footerSource: "Исходный код из",
+            footerThanks: "Спасибо группе【P.R.T.S Alliance】Discord",
+            footerCustom: "由【三文鱼、肉意思】制作",
+            // 颜色选择和替换功能翻译
+            enableColorPicker: "Включить режим выбора цвета",
+            selectedColor: "Выбранный цвет",
+            replacementColor: "Цвет замены",
+            freeColors: "Бесплатные цвета",
+            paidColors: "Платные цвета",
+            applyReplacement: "Применить замену",
+            clearSelection: "Очистить выбор",
+            resetAllReplacements: "Сбросить все замены",
+            currentReplacements: "Текущие замены",
+            noReplacements: "Нет замен цветов",
+            remove: "Удалить",
+            clickImageToSelectColor: "Нажмите на изображение для выбора цвета"
+        },
+        en: {
+            title: "Better Wplace Color Converter",
+            selectPalette: "1. Select Palette",
+            freePalette: "Free Palette",
+            paidPalette: "Paid Palette",
+            selectAll: "Select All",
+            deselectAll: "Deselect All",
+            uploadImage: "2. Upload Image",
+            clickOrDrag: "Click or drag image",
+            adjustParams: "3. Adjust Parameters",
+            ditherStrength: "Dither Strength",
+            imageSize: "Image Size",
+            width: "Width",
+            height: "Height",
+            totalPixels: "Total Pixels",
+            selectAlgorithm: "4. Select Algorithm",
+            colorStats: "Image Color Statistics",
+            processImageFirst: "Color usage will be displayed after processing the image.",
+            uploadImageFirst: "Please upload an image first",
+            zoom: "Zoom",
+            downloadCurrent: "Download Current Result",
+            noColorsDetected: "No selected colors detected in the image.",
+            footerSource: "Source code from",
+            footerThanks: "Thanks to【P.R.T.S Alliance】Discord group",
+            footerCustom: "由【三文鱼、肉意思】制作",
+            // 颜色选择和替换功能翻译
+            enableColorPicker: "Enable Color Picker Mode",
+            selectedColor: "Selected Color",
+            replacementColor: "Replacement Color",
+            freeColors: "Free Colors",
+            paidColors: "Paid Colors",
+            applyReplacement: "Apply Replacement",
+            clearSelection: "Clear Selection",
+            resetAllReplacements: "Reset All Replacements",
+            currentReplacements: "Current Replacements",
+            noReplacements: "No color replacements",
+            remove: "Remove",
+            clickImageToSelectColor: "Click image to select color"
+        },
+        ja: {
+            title: "より良いWplace色変換器",
+            selectPalette: "1. パレットを選択",
+            freePalette: "無料パレット",
+            paidPalette: "有料パレット",
+            selectAll: "すべて選択",
+            deselectAll: "選択解除",
+            uploadImage: "2. 画像をアップロード",
+            clickOrDrag: "画像をクリックまたはドラッグ",
+            adjustParams: "3. パラメータを調整",
+            ditherStrength: "ディザ強度",
+            imageSize: "画像サイズ",
+            width: "幅",
+            height: "高さ",
+            totalPixels: "総ピクセル数",
+            selectAlgorithm: "4. アルゴリズムを選択",
+            colorStats: "画像色統計",
+            processImageFirst: "画像処理後に色の使用量が表示されます。",
+            uploadImageFirst: "まず画像をアップロードしてください",
+            zoom: "ズーム",
+            downloadCurrent: "現在の結果をダウンロード",
+            noColorsDetected: "画像で選択された色が検出されませんでした。",
+            footerSource: "ソースコードは",
+            footerThanks: "【P.R.T.S Alliance】Discordグループに感謝",
+            footerCustom: "由【三文鱼、肉意思】制作"
+        }
+    };
+
+    let currentLanguage = 'zh';
+
+    // --- State ---
+    let state = {
+        originalPalette: [],
+        activePalette: [],
+        quantizedPalette: [],
+        inputImage: null,
+        originalWidth: 0,
+        originalHeight: 0,
+        aspectRatio: 1,
+        activeAlgorithm: 'No Dithering',
+        ditherStrength: 1.0,
+        ditherScale: 1,
+        imageSize: 1.0,
+        zoom: 1.0,
+        panX: 0,
+        panY: 0,
+        isPanning: false,
+        lastPanX: 0,
+        lastPanY: 0,
+        processedImageData: null,
+        isLocked: false,
+        freeColors: [],
+        paidColors: [],
+        selectedFreeColors: new Set(),
+        selectedPaidColors: new Set(),
+        // 颜色选择和替换相关状态
+        colorPickerMode: false,
+        selectedSourceColor: null,
+        selectedReplacementColor: null,
+        colorReplacements: new Map(), // 存储颜色替换映射
+        activeReplacementTab: 'free'
+    };
+
+    const COLOR_INFO = {
+        "rgb(0, 0, 0)": { name: "Black", isPaid: false }, "rgb(60, 60, 60)": { name: "Dark Gray", isPaid: false }, "rgb(120, 120, 120)": { name: "Gray", isPaid: false }, "rgb(210, 210, 210)": { name: "Light Gray", isPaid: false }, "rgb(255, 255, 255)": { name: "White", isPaid: false }, "rgb(96, 0, 24)": { name: "Deep Red", isPaid: false }, "rgb(237, 28, 36)": { name: "Red", isPaid: false }, "rgb(255, 127, 39)": { name: "Orange", isPaid: false }, "rgb(246, 170, 9)": { name: "Gold", isPaid: false }, "rgb(249, 221, 59)": { name: "Yellow", isPaid: false }, "rgb(255, 250, 188)": { name: "Light Yellow", isPaid: false }, "rgb(14, 185, 104)": { name: "Dark Green", isPaid: false }, "rgb(19, 230, 123)": { name: "Green", isPaid: false }, "rgb(135, 255, 94)": { name: "Light Green", isPaid: false }, "rgb(12, 129, 110)": { name: "Dark Teal", isPaid: false }, "rgb(16, 174, 166)": { name: "Teal", isPaid: false }, "rgb(19, 225, 190)": { name: "Light Teal", isPaid: false }, "rgb(96, 247, 242)": { name: "Cyan", isPaid: false }, "rgb(40, 80, 158)": { name: "Dark Blue", isPaid: false }, "rgb(64, 147, 228)": { name: "Blue", isPaid: false }, "rgb(107, 80, 246)": { name: "Indigo", isPaid: false }, "rgb(153, 177, 251)": { name: "Light Indigo", isPaid: false }, "rgb(120, 12, 153)": { name: "Dark Purple", isPaid: false }, "rgb(170, 56, 185)": { name: "Purple", isPaid: false }, "rgb(224, 159, 249)": { name: "Light Purple", isPaid: false }, "rgb(203, 0, 122)": { name: "Dark Pink", isPaid: false }, "rgb(236, 31, 128)": { name: "Pink", isPaid: false }, "rgb(243, 141, 169)": { name: "Light Pink", isPaid: false }, "rgb(104, 70, 52)": { name: "Dark Brown", isPaid: false }, "rgb(149, 104, 42)": { name: "Brown", isPaid: false }, "rgb(248, 178, 119)": { name: "Beige", isPaid: false },
+        "rgb(170, 170, 170)": { name: "Medium Gray", isPaid: true }, "rgb(165, 14, 30)": { name: "Dark Red", isPaid: true }, "rgb(250, 128, 114)": { name: "Light Red", isPaid: true }, "rgb(228, 92, 26)": { name: "Dark Orange", isPaid: true }, "rgb(156, 132, 49)": { name: "Dark Goldenrod", isPaid: true }, "rgb(197, 173, 49)": { name: "Goldenrod", isPaid: true }, "rgb(232, 212, 95)": { name: "Light Goldenrod", isPaid: true }, "rgb(74, 107, 58)": { name: "Dark Olive", isPaid: true }, "rgb(90, 148, 74)": { name: "Olive", isPaid: true }, "rgb(132, 197, 115)": { name: "Light Olive", isPaid: true }, "rgb(15, 121, 159)": { name: "Dark Cyan", isPaid: true }, "rgb(187, 250, 242)": { name: "Light Cyan", isPaid: true }, "rgb(125, 199, 255)": { name: "Light Blue", isPaid: true }, "rgb(77, 49, 184)": { name: "Dark Indigo", isPaid: true }, "rgb(74, 66, 132)": { name: "Dark Slate Blue", isPaid: true }, "rgb(122, 113, 196)": { name: "Slate Blue", isPaid: true }, "rgb(181, 174, 241)": { name: "Light Slate Blue", isPaid: true }, "rgb(155, 82, 73)": { name: "Dark Peach", isPaid: true }, "rgb(209, 128, 120)": { name: "Peach", isPaid: true }, "rgb(250, 182, 164)": { name: "Light Peach", isPaid: true }, "rgb(219, 164, 99)": { name: "Light Brown", isPaid: true }, "rgb(123, 99, 82)": { name: "Dark Tan", isPaid: true }, "rgb(156, 132, 107)": { name: "Tan", isPaid: true }, "rgb(214, 181, 148)": { name: "Light Tan", isPaid: true }, "rgb(209, 128, 81)": { name: "Dark Beige", isPaid: true }, "rgb(255, 197, 165)": { name: "Light Beige", isPaid: true }, "rgb(109, 100, 63)": { name: "Dark Stone", isPaid: true }, "rgb(148, 140, 107)": { name: "Stone", isPaid: true }, "rgb(205, 197, 158)": { name: "Light Stone", isPaid: true }, "rgb(51, 57, 65)": { name: "Dark Slate", isPaid: true }, "rgb(109, 117, 141)": { name: "Slate", isPaid: true }, "rgb(179, 185, 209)": { name: "Light Slate", isPaid: true }
+    };
+
+    // --- Base64 Palettes ---
+    const PRESET_PALETTES = {
+        free: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAACCAYAAAA5Ht7JAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAYdEVYdFNvZnR3YXJlAFBhaW50Lk5FVCA1LjEuOWxu2j4AAAC2ZVhJZklJKgAIAAAABQAaAQUAAQAAAEoAAAAbAQUAAQAAAFIAAAAoAQMAAQAAAAMAAAAxAQIAEAAAAFoAAABphwQAAQAAAGoAAAAAAAAAo5MAAOgDAACjkwAA6AMAAFBhaW50Lk5FVCA1LjEuOQADAACQBwAEAAAAMDIzMAGgAwABAAAAAQAAAAWgBAABAAAAlAAAAAAAAAACAAEAAgAEAAAAUjk4AAIABwAEAAAAMDEwMAAAAABdUNkYj53BAQAAAKdJREFUKFNtjj0LAQEAht9VXVIWg7IoMhuUG0xmv0A3XimriwGTySSDhU25QbEp+QO22xUlEwvlc3gs8tU949Pb0ytJmKaJ4zhIkud5AFiKIEmHaBy9oJ7g7Aa4rbJwn7/9P8GZTXhXo0URo1kmNB4S3iyQJOtyRJKShT65zvbTKBXO9CaPn6hj9HAzM9aDG0tV2ccanNqjn42dT9O1U75nrtOKr//mCdUzUCHvbuYkAAAAAElFTkSuQmCC',
+        all: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAACCAYAAAA5Ht7JAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAAYdEVYdFNvZnR3YXJlAFBhaW50Lk5FVCA1LjEuOWxu2j4AAAC2ZVhJZklJKgAIAAAABQAaAQUAAQAAAEoAAAAbAQUAAQAAAFIAAAAoAQMAAQAAAAMAAAAxAQIAEAAAAFoAAABphwQAAQAAAGoAAAAAAAAAo5MAAOgDAACjkwAA6AMAAFBhaW50Lk5FVCA1LjEuOQADAACQBwAEAAAAMDIzMAGgAwABAAAAAQAAAAWgBAABAAAAlAAAAAAAAAACAAEAAgAEAAAAUjk4AAIABwAEAAAAMDEwMAAAAABdUNkYj53BAQAAAQdJREFUKFMFwcErQ3EAwPHv82baYfPiYGut1MSeebL3dlB+t4d2kIgoL4rmoOyGUibPkuy+SM1NKZLyR6zm5ELZDkYpq5VlxuHVfD4S0BJCIIRA13UikQiaprEqBZjwuUn43HiT01TLVwTDXn6jb8iGjjtkk89uo6oQHhhm7bSEoioMxlSyjR/atW62Au8cHSq4tFFkw49zVmF2fw5LhtTCDX5zEjldaB3U74J4nBU641Fy9gVPjzKJnQwPt1389Vn4zCSfmTodryO0qetc5p9xvTQZj89wkitSK1XYHItRKTiEvjzYPVGW74tMffeSHjL4uD5nvlpjzwyQt3ZplhtsLAqOl/qlf6aZTX6+ooBMAAAAAElFTkSuQmCC'
+    };
+
+    // --- DOM Elements ---
+    const freePaletteGrid = document.getElementById('free-palette-grid');
+    const paidPaletteGrid = document.getElementById('paid-palette-grid');
+    const freeSelectAllBtn = document.getElementById('free-select-all');
+    const paidSelectAllBtn = document.getElementById('paid-select-all');
+    const inputFile = document.getElementById('input-file');
+    const inputWrapper = document.getElementById('input-wrapper');
+    const strengthSlider = document.getElementById('dither-strength');
+    const ditherScaleSelect = document.getElementById('dither-scale');
+    const sizeSlider = document.getElementById('image-size');
+    const strengthValue = document.getElementById('dither-strength-value');
+    const ditherScaleValue = document.getElementById('dither-scale-value');
+    const sizeValue = document.getElementById('image-size-value');
+    const imageWidthInput = document.getElementById('image-width');
+    const imageHeightInput = document.getElementById('image-height');
+    const pixelCountInput = document.getElementById('pixel-count');
+    const ditherSelector = document.getElementById('dither-selector');
+    const previewCanvas = document.getElementById('preview-canvas');
+    const previewCtx = previewCanvas.getContext('2d');
+    const viewport = document.getElementById('preview-canvas-viewport');
+    const placeholderText = document.getElementById('placeholder-text');
+    const downloadBtn = document.getElementById('download-btn');
+    const previewControls = document.querySelector('.preview-controls');
+    const zoomSlider = document.getElementById('zoom-slider');
+    const zoomValue = document.getElementById('zoom-value');
+    
+    // 颜色选择和替换相关DOM元素
+    const colorPickerModeCheckbox = document.getElementById('color-picker-mode');
+    const selectedColorDisplay = document.getElementById('selected-color-display');
+    const selectedColorPreview = document.getElementById('selected-color-preview');
+    const selectedColorName = document.getElementById('selected-color-name');
+    const replacementColorSection = document.getElementById('replacement-color-section');
+    const replacementFreeGrid = document.getElementById('replacement-free-grid');
+    const replacementPaidGrid = document.getElementById('replacement-paid-grid');
+    const applyReplacementBtn = document.getElementById('apply-replacement-btn');
+    const clearReplacementBtn = document.getElementById('clear-replacement-btn');
+    const resetAllReplacementsBtn = document.getElementById('reset-all-replacements-btn');
+    const replacementItems = document.getElementById('replacement-items');
+
+    // 像素悬浮提示框相关变量
+    let pixelTooltip = null;
+    let tooltipThrottleTimer = null;
+    const TOOLTIP_THROTTLE_DELAY = 16; // 约60fps
+
+    // --- Dithering Data ---
+    const DITHER_KERNELS = {
+        FloydSteinberg: [[[1, 0], 7/16], [[-1, 1], 3/16], [[0, 1], 5/16], [[1, 1], 1/16]],
+        JarvisJudiceNinke: [[[1, 0], 7/48], [[2, 0], 5/48], [[-2, 1], 3/48], [[-1, 1], 5/48], [[0, 1], 7/48], [[1, 1], 5/48], [[2, 1], 3/48], [[-2, 2], 1/48], [[-1, 2], 3/48], [[0, 2], 5/48], [[1, 2], 3/48], [[2, 2], 1/48]],
+        Stucki: [[[1, 0], 8/42], [[2, 0], 4/42], [[-2, 1], 2/42], [[-1, 1], 4/42], [[0, 1], 8/42], [[1, 1], 4/42], [[2, 1], 2/42], [[-2, 2], 1/42], [[-1, 2], 2/42], [[0, 2], 4/42], [[1, 2], 2/42], [[2, 2], 1/42]],
+        Atkinson: [[[1, 0], 1/8], [[2, 0], 1/8], [[-1, 1], 1/8], [[0, 1], 1/8], [[1, 1], 1/8], [[0, 2], 1/8]],
+        Burkes: [[[1, 0], 8/32], [[2, 0], 4/32], [[-2, 1], 2/32], [[-1, 1], 4/32], [[0, 1], 8/32], [[1, 1], 4/32], [[2, 1], 2/32]],
+        Sierra3: [[[1, 0], 5/32], [[2, 0], 3/32], [[-2, 1], 2/32], [[-1, 1], 4/32], [[0, 1], 5/32], [[1, 1], 4/32], [[2, 1], 2/32]],
+        Sierra2: [[[1, 0], 4/16], [[2, 0], 3/16], [[-1, 1], 2/16], [[0, 1], 3/16], [[1, 1], 2/16], [[-1, 2], 1/16], [[0, 2], 1/16]],
+        SierraLite: [[[1, 0], 2/4], [[-1, 1], 1/4], [[0, 1], 1/4]],
+    };
+    const BAYER_MATRICES = {
+        Bayer4x4: [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]],
+        Bayer8x8: [[0, 32, 8, 40, 2, 34, 10, 42], [48, 16, 56, 24, 50, 18, 58, 26], [12, 44, 4, 36, 14, 46, 6, 38], [60, 28, 52, 20, 62, 30, 54, 22], [3, 35, 11, 43, 1, 33, 9, 41], [51, 19, 59, 27, 49, 17, 57, 25], [15, 47, 7, 39, 13, 45, 5, 37], [63, 31, 55, 23, 61, 29, 53, 21]]
+    };
+
+    const ALGORITHMS = {
+        'No Dithering': { type: 'error', kernel: null },
+        'Floyd Steinberg': { type: 'error', kernel: DITHER_KERNELS.FloydSteinberg },
+        'Jarvis Judice Ninke': { type: 'error', kernel: DITHER_KERNELS.JarvisJudiceNinke },
+        'Stucki': { type: 'error', kernel: DITHER_KERNELS.Stucki },
+        'Burkes': { type: 'error', kernel: DITHER_KERNELS.Burkes },
+        'Atkinson': { type: 'error', kernel: DITHER_KERNELS.Atkinson },
+        'Sierra3': { type: 'error', kernel: DITHER_KERNELS.Sierra3 },
+        'Sierra2': { type: 'error', kernel: DITHER_KERNELS.Sierra2 },
+        'SierraLite': { type: 'error', kernel: DITHER_KERNELS.SierraLite },
+        'Bayer2x2': { type: 'ordered', matrix: [[0, 2], [3, 1]] },
+        'Bayer4x4': { type: 'ordered', matrix: BAYER_MATRICES.Bayer4x4 },
+        'Bayer8x8': { type: 'ordered', matrix: BAYER_MATRICES.Bayer8x8 },
+        'Ordered3x3': { type: 'ordered', matrix: [[0, 7, 3], [6, 5, 2], [4, 1, 8]] }
+    };
+
+    // 多语言切换函数
+    function updateLanguage(lang) {
+        currentLanguage = lang;
+        const t = TRANSLATIONS[lang];
+        
+        document.title = t.title;
+        document.querySelector('h1').textContent = t.title;
+        
+        // 修复选择器，使用更精确的定位
+        const h2Elements = document.querySelectorAll('h2');
+        if (h2Elements[0]) h2Elements[0].textContent = t.selectPalette;
+        if (h2Elements[1]) h2Elements[1].textContent = t.uploadImage;
+        if (h2Elements[2]) h2Elements[2].textContent = t.adjustParams;
+        if (h2Elements[3]) h2Elements[3].textContent = t.selectAlgorithm;
+        if (h2Elements[4]) h2Elements[4].textContent = t.colorStats;
+        
+        // 修复调色板标题
+        const paletteTitles = document.querySelectorAll('.palette-title');
+        if (paletteTitles[0]) paletteTitles[0].textContent = t.freePalette;
+        if (paletteTitles[1]) paletteTitles[1].textContent = t.paidPalette;
+        
+        // 修复其他元素
+        const inputText = document.getElementById('input-text');
+        if (inputText) inputText.textContent = t.clickOrDrag;
+        
+        // 修复标签文本
+        const ditherStrengthLabel = document.querySelector('label[for="dither-strength"]');
+        if (ditherStrengthLabel) {
+            ditherStrengthLabel.innerHTML = `${t.ditherStrength}: <span id="dither-strength-value">${ditherStrengthLabel.querySelector('span').textContent}</span>`;
+        }
+        
+        const imageSizeLabel = document.querySelector('label[for="image-size"]');
+        if (imageSizeLabel) {
+            imageSizeLabel.innerHTML = `${t.imageSize}: <span id="image-size-value">${imageSizeLabel.querySelector('span').textContent}</span>`;
+        }
+        
+        const widthLabel = document.querySelector('label[for="image-width"]');
+        if (widthLabel) widthLabel.textContent = t.width + ':';
+        
+        const heightLabel = document.querySelector('label[for="image-height"]');
+        if (heightLabel) heightLabel.textContent = t.height + ':';
+        
+        const pixelCountLabel = document.querySelector('label[for="pixel-count"]');
+        if (pixelCountLabel) pixelCountLabel.textContent = t.totalPixels + ':';
+        
+        const placeholderText = document.getElementById('placeholder-text');
+        if (placeholderText) placeholderText.textContent = t.uploadImageFirst;
+        
+        const zoomLabel = document.querySelector('label[for="zoom-slider"]');
+        if (zoomLabel) zoomLabel.textContent = t.zoom + ':';
+        
+        const downloadBtn = document.getElementById('download-btn');
+        if (downloadBtn) downloadBtn.textContent = t.downloadCurrent;
+        
+        // 修复footer翻译
+        const footerParagraphs = document.querySelectorAll('footer p');
+        if (footerParagraphs.length >= 2) {
+            footerParagraphs[0].innerHTML = `${t.footerSource} <a href="https://github.com/PRTSSourceCode/ColorDitherer" target="_blank">ColorDitherer</a>，${t.footerThanks}`;
+            footerParagraphs[1].textContent = t.footerCustom;
+        }
+        
+        // 修复颜色统计容器的初始文本
+        const colorStatsContainer = document.getElementById('color-stats-container');
+        if (colorStatsContainer && colorStatsContainer.querySelector('p')) {
+            colorStatsContainer.innerHTML = `<p>${t.processImageFirst}</p>`;
+        }
+        
+        // 更新颜色选择和替换功能的多语言文本
+        const colorPickerLabel = document.querySelector('label[for="color-picker-mode"]');
+        if (colorPickerLabel) colorPickerLabel.textContent = t.enableColorPicker;
+        
+        const selectedColorTitle = document.querySelector('.selected-color-display h4');
+        if (selectedColorTitle) selectedColorTitle.textContent = t.selectedColor;
+        
+        const replacementColorTitle = document.querySelector('.replacement-color-section h4');
+        if (replacementColorTitle) replacementColorTitle.textContent = t.replacementColor;
+        
+        const freeColorsTab = document.querySelector('[data-tab="free"]');
+        if (freeColorsTab) freeColorsTab.textContent = t.freeColors;
+        
+        const paidColorsTab = document.querySelector('[data-tab="paid"]');
+        if (paidColorsTab) paidColorsTab.textContent = t.paidColors;
+        
+        const applyBtn = document.getElementById('apply-replacement-btn');
+        if (applyBtn) applyBtn.textContent = t.applyReplacement;
+        
+        const clearBtn = document.getElementById('clear-replacement-btn');
+        if (clearBtn) clearBtn.textContent = t.clearSelection;
+        
+        const resetBtn = document.getElementById('reset-replacements-btn');
+        if (resetBtn) resetBtn.textContent = t.resetAllReplacements;
+        
+        const replacementListTitle = document.querySelector('.replacement-list h4');
+        if (replacementListTitle) replacementListTitle.textContent = t.currentReplacements;
+        
+        // 更新替换列表中的"暂无颜色替换"文本
+        const noReplacementsText = document.querySelector('.no-replacements');
+        if (noReplacementsText) noReplacementsText.textContent = t.noReplacements;
+        
+        // 更新所有删除按钮的文本
+        const removeButtons = document.querySelectorAll('.remove-replacement-btn');
+        removeButtons.forEach(btn => {
+            btn.textContent = t.remove;
+        });
+        
+        // 更新按钮文本
+        updateSelectAllButtons();
+    }
+
+    function updateSelectAllButtons() {
+        const t = TRANSLATIONS[currentLanguage];
+        const freeAllSelected = state.selectedFreeColors.size === state.freeColors.length;
+        const paidAllSelected = state.selectedPaidColors.size === state.paidColors.length;
+        
+        freeSelectAllBtn.textContent = freeAllSelected ? t.deselectAll : t.selectAll;
+        paidSelectAllBtn.textContent = paidAllSelected ? t.deselectAll : t.selectAll;
+    }
+
+    // --- Initialization ---
+    function init() {
+        // 初始化语言选择器
+        const languageSelect = document.getElementById('language-select');
+        languageSelect.addEventListener('change', (e) => {
+            updateLanguage(e.target.value);
+        });
+        
+        // 初始化默认语言
+        updateLanguage('zh');
+        
+        // 初始化算法按钮
+        Object.keys(ALGORITHMS).forEach(name => {
+            const button = document.createElement('button');
+            button.textContent = name;
+            button.dataset.name = name;
+            if (name === 'No Dithering') {
+                button.classList.add('active');
+                state.activeAlgorithm = name;
+            }
+            ditherSelector.appendChild(button);
+        });
+
+        loadPalettes();
+
+        // Event Listeners
+        freeSelectAllBtn.addEventListener('click', () => toggleSelectAll('free'));
+        paidSelectAllBtn.addEventListener('click', () => toggleSelectAll('paid'));
+        freePaletteGrid.addEventListener('click', handleSwatchClick);
+        paidPaletteGrid.addEventListener('click', handleSwatchClick);
+        inputFile.addEventListener('change', handleImageUpload);
+    strengthSlider.addEventListener('input', handleStrengthChange);
+    ditherScaleSelect.addEventListener('change', handleDitherScaleChange);
+    sizeSlider.addEventListener('input', handleSizeSliderChange);
+        imageWidthInput.addEventListener('change', handleWidthInputChange);
+        imageHeightInput.addEventListener('change', handleHeightInputChange);
+        pixelCountInput.addEventListener('change', handlePixelCountChange);
+        ditherSelector.addEventListener('click', handleAlgorithmChange);
+        downloadBtn.addEventListener('click', handleDownload);
+        zoomSlider.addEventListener('input', handleZoomSlider);
+        viewport.addEventListener('wheel', handleWheelZoom);
+        viewport.addEventListener('mousedown', handlePanStart);
+        viewport.addEventListener('mousemove', handlePanMove);
+        viewport.addEventListener('mouseup', handlePanEnd);
+        viewport.addEventListener('mouseleave', handlePanEnd);
+        document.getElementById('export-selection-btn').addEventListener('click', handleExportColors);
+        document.getElementById('lock-colors-checkbox').addEventListener('change', (e) => {
+            state.isLocked = e.target.checked;
+            updatePreview();
+        });
+        
+        // 颜色选择和替换功能事件监听器
+        colorPickerModeCheckbox.addEventListener('change', handleColorPickerModeToggle);
+        previewCanvas.addEventListener('click', handleCanvasClick);
+        previewCanvas.addEventListener('mousemove', handleCanvasMouseMove);
+        previewCanvas.addEventListener('mouseleave', hidePixelTooltip);
+        document.querySelector('.replacement-palette-tabs').addEventListener('click', handleReplacementTabClick);
+        replacementFreeGrid.addEventListener('click', handleReplacementColorClick);
+        replacementPaidGrid.addEventListener('click', handleReplacementColorClick);
+        applyReplacementBtn.addEventListener('click', handleApplyReplacement);
+        clearReplacementBtn.addEventListener('click', handleClearReplacement);
+        resetAllReplacementsBtn.addEventListener('click', handleResetAllReplacements);
+    }
+
+    function handleExportColors() {
+        if (!state.processedImageData) return;
+
+        const selectedColorSet = new Set();
+        state.selectedFreeColors.forEach(colorStr => selectedColorSet.add(colorStr));
+        state.selectedPaidColors.forEach(colorStr => selectedColorSet.add(colorStr));
+
+        const originalData = state.processedImageData.data;
+        const width = state.processedImageData.width;
+        const height = state.processedImageData.height;
+        const newData = new Uint8ClampedArray(originalData.length);
+
+        for (let i = 0; i < originalData.length; i += 4) {
+            const color = [originalData[i], originalData[i+1], originalData[i+2]];
+            const colorStr = JSON.stringify(color);
+
+            if (selectedColorSet.has(colorStr)) {
+                newData[i] = originalData[i];         // R
+                newData[i+1] = originalData[i+1];   // G
+                newData[i+2] = originalData[i+2];   // B
+                newData[i+3] = 255;                   // A (Opaque)
+            } else {
+                newData[i] = 0;   // R
+                newData[i+1] = 0; // G
+                newData[i+2] = 0; // B
+                newData[i+3] = 0; // A (Transparent)
+            }
+        }
+
+        const newImageData = new ImageData(newData, width, height);
+        
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = width;
+        tempCanvas.height = height;
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCtx.putImageData(newImageData, 0, 0);
+
+        const link = document.createElement('a');
+        link.href = tempCanvas.toDataURL('image/png');
+        link.download = 'selected_colors_export.png';
+        link.click();
+    }
+
+    // --- 颜色选择和替换功能处理函数 ---
+    function handleColorPickerModeToggle(e) {
+        state.colorPickerMode = e.target.checked;
+        
+        if (state.colorPickerMode) {
+            previewCanvas.classList.add('color-picker-active');
+            // 禁用平移功能
+            viewport.style.pointerEvents = 'none';
+            previewCanvas.style.pointerEvents = 'auto';
+        } else {
+            previewCanvas.classList.remove('color-picker-active');
+            // 恢复平移功能
+            viewport.style.pointerEvents = 'auto';
+            previewCanvas.style.pointerEvents = 'none';
+            // 隐藏颜色选择相关界面
+            selectedColorDisplay.style.display = 'none';
+            replacementColorSection.style.display = 'none';
+            state.selectedSourceColor = null;
+            state.selectedReplacementColor = null;
+        }
+    }
+
+    // 像素悬浮提示框相关函数
+    function createPixelTooltip() {
+        if (pixelTooltip) return pixelTooltip;
+        
+        pixelTooltip = document.createElement('div');
+        pixelTooltip.className = 'pixel-tooltip';
+        document.body.appendChild(pixelTooltip);
+        return pixelTooltip;
+    }
+
+    function showPixelTooltip(x, y, color, mouseX, mouseY) {
+        const tooltip = createPixelTooltip();
+        const [r, g, b] = color;
+        
+        // 查找颜色信息 - 使用正确的键值格式
+        const colorKey = `rgb(${r}, ${g}, ${b})`;
+        const colorInfo = COLOR_INFO[colorKey] || { name: 'Unknown Color', isPaid: false };
+        let colorName = colorInfo.name;
+        if (colorInfo.name === 'Salmon') {
+            colorName = '鲑鱼色';
+        }
+        colorName += colorInfo.isPaid ? ' ★' : '';
+        
+        const hexColor = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+        
+        tooltip.innerHTML = `
+            <span class="color-preview-small" style="background-color: rgb(${r}, ${g}, ${b});"></span>
+            <span>${colorName}</span><br>
+            <span style="font-size: 11px; opacity: 0.8;">RGB(${r}, ${g}, ${b}) ${hexColor}</span><br>
+            <span style="font-size: 11px; opacity: 0.8;">位置: (${x}, ${y})</span>
+        `;
+        
+        tooltip.style.left = mouseX + 'px';
+        tooltip.style.top = mouseY + 'px';
+        tooltip.classList.add('visible');
+    }
+
+    function hidePixelTooltip() {
+        if (pixelTooltip) {
+            pixelTooltip.classList.remove('visible');
+        }
+        if (tooltipThrottleTimer) {
+            clearTimeout(tooltipThrottleTimer);
+            tooltipThrottleTimer = null;
+        }
+    }
+
+    function handleCanvasMouseMove(e) {
+        // 只在颜色选择模式下显示提示框
+        if (!state.colorPickerMode || !state.processedImageData) {
+            hidePixelTooltip();
+            return;
+        }
+        
+        // 性能优化：使用节流
+        if (tooltipThrottleTimer) return;
+        
+        tooltipThrottleTimer = setTimeout(() => {
+            const rect = previewCanvas.getBoundingClientRect();
+            const scaleX = previewCanvas.width / rect.width;
+            const scaleY = previewCanvas.height / rect.height;
+            
+            const x = Math.floor((e.clientX - rect.left) * scaleX);
+            const y = Math.floor((e.clientY - rect.top) * scaleY);
+            
+            if (x >= 0 && x < previewCanvas.width && y >= 0 && y < previewCanvas.height) {
+                const imageData = state.processedImageData;
+                const index = (y * imageData.width + x) * 4;
+                
+                const r = imageData.data[index];
+                const g = imageData.data[index + 1];
+                const b = imageData.data[index + 2];
+                const a = imageData.data[index + 3];
+                
+                // 忽略透明像素
+                if (a < 128) {
+                    hidePixelTooltip();
+                    tooltipThrottleTimer = null;
+                    return;
+                }
+                
+                const color = [r, g, b];
+                showPixelTooltip(x, y, color, e.clientX, e.clientY);
+            } else {
+                hidePixelTooltip();
+            }
+            
+            tooltipThrottleTimer = null;
+        }, TOOLTIP_THROTTLE_DELAY);
+    }
+
+    function handleCanvasClick(e) {
+        if (!state.colorPickerMode || !state.processedImageData) return;
+        
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const rect = previewCanvas.getBoundingClientRect();
+        const scaleX = previewCanvas.width / rect.width;
+        const scaleY = previewCanvas.height / rect.height;
+        
+        const x = Math.floor((e.clientX - rect.left) * scaleX);
+        const y = Math.floor((e.clientY - rect.top) * scaleY);
+        
+        if (x >= 0 && x < previewCanvas.width && y >= 0 && y < previewCanvas.height) {
+            const imageData = state.processedImageData;
+            const index = (y * imageData.width + x) * 4;
+            
+            const r = imageData.data[index];
+            const g = imageData.data[index + 1];
+            const b = imageData.data[index + 2];
+            const a = imageData.data[index + 3];
+            
+            // 忽略透明像素
+            if (a < 128) return;
+            
+            const selectedColor = [r, g, b];
+            state.selectedSourceColor = selectedColor;
+            
+            // 显示选中的颜色
+            showSelectedColor(selectedColor);
+            
+            // 显示替换颜色选择界面
+            showReplacementColorSection();
+        }
+    }
+
+    function showSelectedColor(color) {
+        const colorKey = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+        const colorInfo = COLOR_INFO[colorKey] || { name: 'Unknown Color', isPaid: false };
+        
+        let displayName = colorInfo.name;
+        if (colorInfo.name === 'Salmon') {
+            displayName = 'Salmon【三文鱼、肉意思】';
+        }
+        displayName += colorInfo.isPaid ? ' ★' : '';
+        
+        selectedColorPreview.style.backgroundColor = colorKey;
+        selectedColorName.textContent = displayName;
+        selectedColorDisplay.style.display = 'block';
+    }
+
+    function showReplacementColorSection() {
+        replacementColorSection.style.display = 'block';
+        renderReplacementPalettes();
+    }
+
+    function handleReplacementTabClick(e) {
+        if (!e.target.classList.contains('tab-btn')) return;
+        
+        const tab = e.target.dataset.tab;
+        state.activeReplacementTab = tab;
+        
+        // 更新标签状态
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        e.target.classList.add('active');
+        
+        // 显示对应的调色板
+        if (tab === 'free') {
+            replacementFreeGrid.style.display = 'flex';
+            replacementPaidGrid.style.display = 'none';
+        } else {
+            replacementFreeGrid.style.display = 'none';
+            replacementPaidGrid.style.display = 'flex';
+        }
+    }
+
+    function renderReplacementPalettes() {
+        // 渲染免费颜色调色板
+        renderReplacementPalette(replacementFreeGrid, state.freeColors);
+        // 渲染付费颜色调色板
+        renderReplacementPalette(replacementPaidGrid, state.paidColors);
+    }
+
+    function renderReplacementPalette(grid, colors) {
+        grid.innerHTML = '';
+        
+        colors.forEach(color => {
+            const swatch = document.createElement('div');
+            swatch.className = 'color-swatch';
+            swatch.style.backgroundColor = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+            swatch.dataset.color = JSON.stringify(color);
+            
+            const colorKey = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+            const colorInfo = COLOR_INFO[colorKey] || { name: 'Unknown', isPaid: false };
+            let displayName = colorInfo.name;
+            if (colorInfo.name === 'Salmon') {
+                displayName = 'Salmon【三文鱼、肉意思】';
+            }
+            displayName += colorInfo.isPaid ? ' ★' : '';
+            
+            const tooltip = document.createElement('span');
+            tooltip.className = 'tooltip-text';
+            tooltip.textContent = displayName;
+            swatch.appendChild(tooltip);
+            
+            grid.appendChild(swatch);
+        });
+    }
+
+    function handleReplacementColorClick(e) {
+        if (!e.target.classList.contains('color-swatch')) return;
+        
+        // 清除之前的选择
+        e.target.parentElement.querySelectorAll('.color-swatch').forEach(swatch => {
+            swatch.classList.remove('selected');
+        });
+        
+        // 选中当前颜色
+        e.target.classList.add('selected');
+        
+        const colorStr = e.target.dataset.color;
+        state.selectedReplacementColor = JSON.parse(colorStr);
+        
+        // 启用应用按钮
+        applyReplacementBtn.disabled = false;
+    }
+
+    function handleApplyReplacement() {
+        if (!state.selectedSourceColor || !state.selectedReplacementColor) return;
+        
+        const sourceKey = JSON.stringify(state.selectedSourceColor);
+        const replacementKey = JSON.stringify(state.selectedReplacementColor);
+        
+        // 添加到替换映射
+        state.colorReplacements.set(sourceKey, state.selectedReplacementColor);
+        
+        // 更新替换列表显示
+        updateReplacementList();
+        
+        // 重新处理图像
+        updatePreview();
+        
+        // 清除当前选择
+        handleClearReplacement();
+    }
+
+    function handleClearReplacement() {
+        state.selectedSourceColor = null;
+        state.selectedReplacementColor = null;
+        selectedColorDisplay.style.display = 'none';
+        replacementColorSection.style.display = 'none';
+        applyReplacementBtn.disabled = true;
+        
+        // 清除选中状态
+        document.querySelectorAll('.replacement-palette-grid .color-swatch').forEach(swatch => {
+            swatch.classList.remove('selected');
+        });
+    }
+
+    function handleResetAllReplacements() {
+        state.colorReplacements.clear();
+        updateReplacementList();
+        updatePreview();
+        handleClearReplacement();
+    }
+
+    function updateReplacementList() {
+        if (state.colorReplacements.size === 0) {
+            replacementItems.innerHTML = '<p class="no-replacements">暂无颜色替换</p>';
+            return;
+        }
+        
+        replacementItems.innerHTML = '';
+        
+        state.colorReplacements.forEach((replacementColor, sourceColorStr) => {
+            const sourceColor = JSON.parse(sourceColorStr);
+            
+            const item = document.createElement('div');
+            item.className = 'replacement-item';
+            
+            const sourceColorKey = `rgb(${sourceColor[0]}, ${sourceColor[1]}, ${sourceColor[2]})`;
+            const replacementColorKey = `rgb(${replacementColor[0]}, ${replacementColor[1]}, ${replacementColor[2]})`;
+            
+            const sourceColorInfo = COLOR_INFO[sourceColorKey] || { name: 'Unknown', isPaid: false };
+            const replacementColorInfo = COLOR_INFO[replacementColorKey] || { name: 'Unknown', isPaid: false };
+            
+            let sourceDisplayName = sourceColorInfo.name;
+            if (sourceColorInfo.name === 'Salmon') {
+                sourceDisplayName = 'Salmon【三文鱼、肉意思】';
+            }
+            sourceDisplayName += sourceColorInfo.isPaid ? ' ★' : '';
+            
+            let replacementDisplayName = replacementColorInfo.name;
+            if (replacementColorInfo.name === 'Salmon') {
+                replacementDisplayName = 'Salmon【三文鱼、肉意思】';
+            }
+            replacementDisplayName += replacementColorInfo.isPaid ? ' ★' : '';
+            
+            item.innerHTML = `
+                <div class="replacement-mapping">
+                    <div class="color-preview" style="background-color: ${sourceColorKey};"></div>
+                    <span>${sourceDisplayName}</span>
+                    <span class="replacement-arrow">→</span>
+                    <div class="color-preview" style="background-color: ${replacementColorKey};"></div>
+                    <span>${replacementDisplayName}</span>
+                </div>
+                <button class="remove-replacement-btn" data-source="${sourceColorStr}">删除</button>
+            `;
+            
+            // 添加删除按钮事件
+            const removeBtn = item.querySelector('.remove-replacement-btn');
+            removeBtn.addEventListener('click', () => {
+                state.colorReplacements.delete(sourceColorStr);
+                updateReplacementList();
+                updatePreview();
+            });
+            
+            replacementItems.appendChild(item);
+        });
+    }
+
+    // --- Event Handlers ---
+    function toggleSelectAll(type) {
+        const t = TRANSLATIONS[currentLanguage];
+        if (type === 'free') {
+            const allSelected = state.selectedFreeColors.size === state.freeColors.length;
+            if (allSelected) {
+                state.selectedFreeColors.clear();
+                freeSelectAllBtn.textContent = t.selectAll;
+            } else {
+                state.freeColors.forEach(color => {
+                    const colorKey = JSON.stringify(color);
+                    state.selectedFreeColors.add(colorKey);
+                });
+                freeSelectAllBtn.textContent = t.deselectAll;
+            }
+            renderPaletteGrid('free');
+        } else {
+            const allSelected = state.selectedPaidColors.size === state.paidColors.length;
+            if (allSelected) {
+                state.selectedPaidColors.clear();
+                paidSelectAllBtn.textContent = t.selectAll;
+            } else {
+                state.paidColors.forEach(color => {
+                    const colorKey = JSON.stringify(color);
+                    state.selectedPaidColors.add(colorKey);
+                });
+                paidSelectAllBtn.textContent = t.deselectAll;
+            }
+            renderPaletteGrid('paid');
+        }
+        updateActivePalette();
+        updatePreview();
+    }
+
+    function handleSwatchClick(e) {
+        if (!e.target.classList.contains('color-swatch')) return;
+
+        const colorStr = e.target.dataset.color;
+        const color = JSON.parse(colorStr);
+        const colorKey = JSON.stringify(color);
+        const isPaid = e.target.dataset.isPaid === 'true';
+
+        if (isPaid) {
+            if (state.selectedPaidColors.has(colorKey)) {
+                state.selectedPaidColors.delete(colorKey);
+                e.target.classList.add('deselected');
+            } else {
+                state.selectedPaidColors.add(colorKey);
+                e.target.classList.remove('deselected');
+            }
+            updateSelectAllButton('paid');
+        } else {
+            if (state.selectedFreeColors.has(colorKey)) {
+                state.selectedFreeColors.delete(colorKey);
+                e.target.classList.add('deselected');
+            } else {
+                state.selectedFreeColors.add(colorKey);
+                e.target.classList.remove('deselected');
+            }
+            updateSelectAllButton('free');
+        }
+        
+        updateActivePalette();
+        updatePreview();
+    }
+
+    function updateSelectAllButton(type) {
+        const t = TRANSLATIONS[currentLanguage];
+        if (type === 'free') {
+            const allSelected = state.selectedFreeColors.size === state.freeColors.length && state.freeColors.length > 0;
+            freeSelectAllBtn.textContent = allSelected ? t.deselectAll : t.selectAll;
+        } else {
+            const allSelected = state.selectedPaidColors.size === state.paidColors.length && state.paidColors.length > 0;
+            paidSelectAllBtn.textContent = allSelected ? t.deselectAll : t.selectAll;
+        }
+    }
+
+    async function handleImageUpload(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        state.inputImage = await loadImage(URL.createObjectURL(file));
+        state.originalWidth = state.inputImage.width;
+        state.originalHeight = state.inputImage.height;
+        state.aspectRatio = state.originalWidth / state.originalHeight;
+        
+        inputWrapper.style.backgroundImage = `url(${state.inputImage.src})`;
+        inputWrapper.classList.add('has-file');
+        document.getElementById('input-text').style.display = 'none';
+
+        placeholderText.style.display = 'none';
+        viewport.style.display = 'block';
+        previewControls.style.display = 'flex';
+        downloadBtn.style.display = 'block';
+        downloadBtn.disabled = false;
+
+        updateSizeUI();
+        resetPanAndZoom();
+        updatePreview();
+    }
+
+    function handleStrengthChange() {
+        state.ditherStrength = strengthSlider.value / 100;
+        strengthValue.textContent = `${strengthSlider.value}%`;
+        updatePreview();
+    }
+
+    function handleDitherScaleChange() {
+        state.ditherScale = parseInt(ditherScaleSelect.value);
+        ditherScaleValue.textContent = `${ditherScaleSelect.value}倍`;
+        updatePreview();
+    }
+
+    function handleSizeSliderChange() {
+        state.imageSize = sizeSlider.value / 100;
+        updateSizeUI();
+        updatePreview();
+    }
+
+    function handlePixelCountChange() {
+        if (!state.inputImage) return;
+        let targetPixels = parseInt(pixelCountInput.value, 10);
+        if (isNaN(targetPixels) || targetPixels < 10) targetPixels = 10;
+        if (targetPixels > 1000000) targetPixels = 1000000;
+
+        const newWidth = Math.round(Math.sqrt(targetPixels * state.aspectRatio));
+        
+        state.imageSize = newWidth / state.originalWidth;
+        updateSizeUI();
+        updatePreview();
+    }
+
+    function handleWidthInputChange() {
+        const newWidth = parseInt(imageWidthInput.value, 10);
+        if (!isNaN(newWidth) && newWidth > 0) {
+            state.imageSize = newWidth / state.originalWidth;
+            updateSizeUI();
+            updatePreview();
+        }
+    }
+
+    function handleHeightInputChange() {
+        const newHeight = parseInt(imageHeightInput.value, 10);
+        if (!isNaN(newHeight) && newHeight > 0) {
+            state.imageSize = newHeight / state.originalHeight;
+            updateSizeUI();
+            updatePreview();
+        }
+    }
+
+    function handleAlgorithmChange(e) {
+        if (e.target.tagName !== 'BUTTON') return;
+        state.activeAlgorithm = e.target.dataset.name;
+        ditherSelector.querySelector('.active').classList.remove('active');
+        e.target.classList.add('active');
+        updatePreview();
+    }
+    
+    function handleDownload() {
+        const link = document.createElement('a');
+        link.download = `${state.activeAlgorithm}_processed.png`;
+        link.href = previewCanvas.toDataURL('image/png');
+        link.click();
+    }
+
+    function handleZoomSlider() {
+        state.zoom = zoomSlider.value / 100;
+        zoomValue.textContent = `${zoomSlider.value}%`;
+        updateTransform();
+    }
+
+    function handleWheelZoom(e) {
+        e.preventDefault();
+        const zoomFactor = 1.1;
+        const oldZoom = state.zoom;
+        
+        state.zoom *= (e.deltaY < 0 ? zoomFactor : 1 / zoomFactor);
+        state.zoom = Math.max(0.2, Math.min(5, state.zoom));
+
+        const rect = viewport.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        state.panX = mouseX - (mouseX - state.panX) * (state.zoom / oldZoom);
+        state.panY = mouseY - (mouseY - state.panY) * (state.zoom / oldZoom);
+
+        zoomSlider.value = Math.round(state.zoom * 100);
+        zoomValue.textContent = `${zoomSlider.value}%`;
+        updateTransform();
+    }
+
+    function handlePanStart(e) {
+        e.preventDefault();
+        state.isPanning = true;
+        state.lastPanX = e.clientX;
+        state.lastPanY = e.clientY;
+        viewport.style.cursor = 'grabbing';
+    }
+
+    function handlePanMove(e) {
+        if (!state.isPanning) return;
+        e.preventDefault();
+        const dx = e.clientX - state.lastPanX;
+        const dy = e.clientY - state.lastPanY;
+        state.panX += dx;
+        state.panY += dy;
+        state.lastPanX = e.clientX;
+        state.lastPanY = e.clientY;
+        updateTransform();
+    }
+
+    function handlePanEnd() {
+        state.isPanning = false;
+        viewport.style.cursor = 'grab';
+    }
+
+    // --- Core Logic & UI Updates ---
+    async function loadPalettes() {
+        const freeImg = await loadImage(PRESET_PALETTES.free);
+        const allImg = await loadImage(PRESET_PALETTES.all);
+        
+        state.freeColors = extractColorsFromImage(freeImg);
+        const allColors = extractColorsFromImage(allImg);
+        
+        // Set quantizedPalette to all available colors
+        state.quantizedPalette = [...allColors];
+        
+        // Separate paid colors (colors in all but not in free)
+        const freeColorSet = new Set(state.freeColors.map(JSON.stringify));
+        state.paidColors = allColors.filter(color => !freeColorSet.has(JSON.stringify(color)));
+        
+        // Initially select all free colors
+        state.freeColors.forEach(color => {
+            state.selectedFreeColors.add(JSON.stringify(color));
+        });
+        
+        renderPaletteGrid('free');
+        renderPaletteGrid('paid');
+        updateActivePalette();
+    }
+
+    function extractColorsFromImage(img) {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        const imageData = ctx.getImageData(0, 0, img.width, img.height).data;
+        
+        const colors = new Set();
+        for (let i = 0; i < imageData.length; i += 4) {
+            if (imageData[i + 3] > 128) {
+                colors.add(JSON.stringify([imageData[i], imageData[i+1], imageData[i+2]]));
+            }
+        }
+        
+        const colorArray = Array.from(colors, JSON.parse);
+        if (!colorArray.some(c => c[0]===0 && c[1]===0 && c[2]===0)) {
+            colorArray.unshift([0, 0, 0]);
+        }
+        
+        return colorArray;
+    }
+
+    function renderPaletteGrid(type) {
+        const grid = type === 'free' ? freePaletteGrid : paidPaletteGrid;
+        const colors = type === 'free' ? state.freeColors : state.paidColors;
+        const selectedColors = type === 'free' ? state.selectedFreeColors : state.selectedPaidColors;
+        
+        grid.innerHTML = '';
+        
+        colors.forEach(color => {
+            const swatch = document.createElement('div');
+            swatch.className = 'color-swatch';
+            swatch.style.backgroundColor = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+            const colorStr = JSON.stringify(color);
+            swatch.dataset.color = colorStr;
+            swatch.dataset.isPaid = type === 'paid';
+
+            const colorKey = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+            const colorInfo = COLOR_INFO[colorKey] || { name: 'Unknown', isPaid: type === 'paid' };
+            // 保持颜色英文名和Salmon【三文鱼、肉意思】不变
+            let displayName = colorInfo.name;
+            if (colorInfo.name === 'Salmon') {
+                displayName = 'Salmon【三文鱼、肉意思】';
+            }
+            displayName += colorInfo.isPaid ? ' ★' : '';
+            
+            const tooltip = document.createElement('span');
+            tooltip.className = 'tooltip-text';
+            tooltip.textContent = displayName;
+            swatch.appendChild(tooltip);
+
+            if (!selectedColors.has(colorStr)) {
+                swatch.classList.add('deselected');
+            }
+            
+            grid.appendChild(swatch);
+        });
+        
+        updateSelectAllButton(type);
+    }
+
+    function updateActivePalette() {
+        const selectedColors = [];
+        
+        // Add selected free colors
+        state.freeColors.forEach(color => {
+            if (state.selectedFreeColors.has(JSON.stringify(color))) {
+                selectedColors.push(color);
+            }
+        });
+        
+        // Add selected paid colors
+        state.paidColors.forEach(color => {
+            if (state.selectedPaidColors.has(JSON.stringify(color))) {
+                selectedColors.push(color);
+            }
+        });
+        
+        state.activePalette = selectedColors.length > 0 ? selectedColors : [[0, 0, 0]];
+    }
+
+    function updateSizeUI() {
+        if (!state.inputImage) return;
+        const newWidth = Math.round(state.originalWidth * state.imageSize);
+        const newHeight = Math.round(state.originalHeight * state.imageSize);
+        
+        sizeSlider.value = Math.round(state.imageSize * 100);
+        sizeValue.textContent = `${sizeSlider.value}%`;
+        imageWidthInput.value = newWidth;
+        imageHeightInput.value = newHeight;
+        pixelCountInput.value = newWidth * newHeight;
+    }
+
+    function updatePreview() {
+        if (!state.inputImage || !state.activePalette || state.activePalette.length === 0) {
+            updateColorStats(null);
+            return;
+        }
+
+        const newWidth = Math.round(state.originalWidth * state.imageSize);
+        const newHeight = Math.round(state.originalHeight * state.imageSize);
+
+        previewCanvas.width = newWidth;
+        previewCanvas.height = newHeight;
+        previewCtx.drawImage(state.inputImage, 0, 0, newWidth, newHeight);
+        
+        const imageData = previewCtx.getImageData(0, 0, newWidth, newHeight);
+        const algo = ALGORITHMS[state.activeAlgorithm];
+        let processedImageData;
+
+        if (algo.type === 'error') {
+            processedImageData = applyErrorDither(imageData, state.activePalette, state.ditherStrength, algo.kernel, state.isLocked);
+        } else if (algo.type === 'ordered') {
+            processedImageData = applyOrderedDither(imageData, state.activePalette, state.ditherStrength, algo.matrix, state.isLocked);
+        }
+
+        // 应用颜色替换
+        if (state.colorReplacements.size > 0) {
+            processedImageData = applyColorReplacements(processedImageData);
+        }
+
+        state.processedImageData = processedImageData;
+        
+        // Update preview canvas size to match processed image
+        previewCanvas.width = processedImageData.width;
+        previewCanvas.height = processedImageData.height;
+        previewCtx.putImageData(processedImageData, 0, 0);
+        updateTransform();
+        updateColorStats(processedImageData);
+    }
+
+    function applyColorReplacements(imageData) {
+        const newData = new Uint8ClampedArray(imageData.data.length);
+        
+        for (let i = 0; i < imageData.data.length; i += 4) {
+            const r = imageData.data[i];
+            const g = imageData.data[i + 1];
+            const b = imageData.data[i + 2];
+            const a = imageData.data[i + 3];
+            
+            const colorKey = JSON.stringify([r, g, b]);
+            
+            if (state.colorReplacements.has(colorKey)) {
+                const replacementColor = state.colorReplacements.get(colorKey);
+                newData[i] = replacementColor[0];     // R
+                newData[i + 1] = replacementColor[1]; // G
+                newData[i + 2] = replacementColor[2]; // B
+                newData[i + 3] = a;                   // A (保持原始透明度)
+            } else {
+                newData[i] = r;
+                newData[i + 1] = g;
+                newData[i + 2] = b;
+                newData[i + 3] = a;
+            }
+        }
+        
+        return new ImageData(newData, imageData.width, imageData.height);
+    }
+
+    function updateTransform() {
+        if (!state.inputImage) return;
+        previewCanvas.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.zoom})`;
+    }
+
+    function resetPanAndZoom() {
+        state.zoom = 1.0;
+        state.panX = 0;
+        state.panY = 0;
+        zoomSlider.value = 100;
+        zoomValue.textContent = '100%';
+        updateTransform();
+    }
+
+    // --- Image & Color Utils ---
+    function loadImage(src) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => resolve(img);
+            img.onerror = reject;
+            img.src = src;
+        });
+    }
+
+    function findClosestColor(color, palette) {
+        let minDistance = Infinity;
+        let closestColor = palette[0];
+        for (const pColor of palette) {
+            const distance = (color[0] - pColor[0])**2 + (color[1] - pColor[1])**2 + (color[2] - pColor[2])**2;
+            if (distance < minDistance) {
+                minDistance = distance;
+                closestColor = pColor;
+            }
+        }
+        return closestColor;
+    }
+
+    function updateColorStats(imageData) {
+        const statsContainer = document.getElementById('color-stats-container');
+        const t = TRANSLATIONS[currentLanguage];
+        
+        if (!imageData) {
+            statsContainer.innerHTML = `<p>${t.processImageFirst}</p>`;
+            return;
+        }
+
+        const colorCounts = {};
+        const data = imageData.data;
+
+        for (let i = 0; i < data.length; i += 4) {
+            if (data[i+3] < 128) continue;
+            const colorKey = `rgb(${data[i]}, ${data[i+1]}, ${data[i+2]})`;
+            colorCounts[colorKey] = (colorCounts[colorKey] || 0) + 1;
+        }
+
+        const sortedColors = Object.entries(colorCounts).sort(([,a],[,b]) => b - a);
+
+        statsContainer.innerHTML = '';
+
+        if (sortedColors.length === 0) {
+            statsContainer.innerHTML = `<p>${t.noColorsDetected}</p>`;
+            return;
+        }
+
+        for (const [colorKey, count] of sortedColors) {
+            const colorInfo = COLOR_INFO[colorKey] || { name: 'Unknown Color', isPaid: false };
+            // 保持Salmon英文名和三文鱼、肉意思中文名不变
+            let displayName = colorInfo.name;
+            if (colorInfo.name === 'Salmon') {
+                displayName = 'Salmon【三文鱼、肉意思】';
+            }
+            displayName += colorInfo.isPaid ? ' ★' : '';
+
+            const row = document.createElement('div');
+            row.className = 'color-stat-row';
+            row.innerHTML = `
+                <div class="color-stat-swatch" style="background-color: ${colorKey};"></div>
+                <span class="color-stat-name">${displayName}</span>
+                <span class="color-stat-count">${count.toLocaleString()} px</span>
+            `;
+            statsContainer.appendChild(row);
+        }
+    }
+
+    // --- Dithering Functions ---
+    function applyErrorDither(imageData, palette, strength, kernel, isLocked) {
+        const originalWidth = imageData.width;
+        const originalHeight = imageData.height;
+        const ditherScale = state.ditherScale || 1;
+        
+        // Step 1: Downscale the image for dithering
+        const downsampledWidth = Math.max(1, Math.floor(originalWidth / ditherScale));
+        const downsampledHeight = Math.max(1, Math.floor(originalHeight / ditherScale));
+        
+        // Create downsampled image data
+        const downsampledData = new Float32Array(downsampledWidth * downsampledHeight * 4);
+        
+        // Downsample by averaging pixels in each ditherScale x ditherScale block
+        for (let y = 0; y < downsampledHeight; y++) {
+            for (let x = 0; x < downsampledWidth; x++) {
+                let r = 0, g = 0, b = 0, a = 0, count = 0;
+                
+                // Average pixels in the block
+                for (let dy = 0; dy < ditherScale; dy++) {
+                    for (let dx = 0; dx < ditherScale; dx++) {
+                        const srcX = x * ditherScale + dx;
+                        const srcY = y * ditherScale + dy;
+                        
+                        if (srcX < originalWidth && srcY < originalHeight) {
+                            const srcIndex = (srcY * originalWidth + srcX) * 4;
+                            r += imageData.data[srcIndex];
+                            g += imageData.data[srcIndex + 1];
+                            b += imageData.data[srcIndex + 2];
+                            a += imageData.data[srcIndex + 3];
+                            count++;
+                        }
+                    }
+                }
+                
+                if (count > 0) {
+                    const downsampledIndex = (y * downsampledWidth + x) * 4;
+                    downsampledData[downsampledIndex] = r / count;
+                    downsampledData[downsampledIndex + 1] = g / count;
+                    downsampledData[downsampledIndex + 2] = b / count;
+                    downsampledData[downsampledIndex + 3] = a / count;
+                }
+            }
+        }
+        
+        // Step 2: Apply dithering on the downsampled image
+        const fullPalette = state.quantizedPalette;
+
+        const selectedColorSet = new Set();
+        if (isLocked && fullPalette && fullPalette.length > 0) {
+            state.selectedFreeColors.forEach(colorStr => selectedColorSet.add(colorStr));
+            state.selectedPaidColors.forEach(colorStr => selectedColorSet.add(colorStr));
+        }
+
+        // Apply error diffusion dithering on downsampled data
+        for (let y = 0; y < downsampledHeight; y++) {
+            for (let x = 0; x < downsampledWidth; x++) {
+                const i = (y * downsampledWidth + x) * 4;
+                const oldColor = [downsampledData[i], downsampledData[i+1], downsampledData[i+2]];
+                const originalAlpha = downsampledData[i+3]; // 保存原始透明度
+
+                // 如果原始像素是透明的，保持透明
+                if (originalAlpha < 128) { // 透明度阈值
+                    downsampledData[i] = 0;
+                    downsampledData[i+1] = 0;
+                    downsampledData[i+2] = 0;
+                    downsampledData[i+3] = 0; // 保持透明
+                    continue;
+                }
+
+                if (isLocked && fullPalette && fullPalette.length > 0) {
+                    // 首先在选中的颜色中查找最接近的颜色
+                    const selectedColorsArray = Array.from(selectedColorSet).map(colorStr => JSON.parse(colorStr));
+                    if (selectedColorsArray.length > 0) {
+                        const closestSelectedColor = findClosestColor(oldColor, selectedColorsArray);
+                        const originalQuantizedColor = findClosestColor(oldColor, fullPalette);
+                        
+                        // 检查原始量化颜色是否在选中的颜色集合中
+                        if (!selectedColorSet.has(JSON.stringify(originalQuantizedColor))) {
+                            downsampledData[i] = 0;
+                            downsampledData[i+1] = 0;
+                            downsampledData[i+2] = 0;
+                            downsampledData[i+3] = 0; // Make completely transparent
+                            continue; 
+                        }
+                    } else {
+                        // 如果没有选中任何颜色，则将像素设为透明
+                        downsampledData[i] = 0;
+                        downsampledData[i+1] = 0;
+                        downsampledData[i+2] = 0;
+                        downsampledData[i+3] = 0;
+                        continue;
+                    }
+                }
+
+                const newColor = findClosestColor(oldColor, palette);
+                downsampledData[i] = newColor[0];
+                downsampledData[i+1] = newColor[1];
+                downsampledData[i+2] = newColor[2];
+                downsampledData[i+3] = originalAlpha; // 保持原始透明度而不是强制设为255
+
+                if (strength > 0 && kernel) {
+                    const error = [
+                        (oldColor[0] - newColor[0]) * strength,
+                        (oldColor[1] - newColor[1]) * strength,
+                        (oldColor[2] - newColor[2]) * strength,
+                    ];
+
+                    for (const [pos, factor] of kernel) {
+                        const [dx, dy] = pos;
+                        const nx = x + dx;
+                        const ny = y + dy;
+                        if (nx >= 0 && nx < downsampledWidth && ny >= 0 && ny < downsampledHeight) {
+                            const ni = (ny * downsampledWidth + nx) * 4;
+                            downsampledData[ni]   += error[0] * factor;
+                            downsampledData[ni+1] += error[1] * factor;
+                            downsampledData[ni+2] += error[2] * factor;
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Step 3: Upscale the dithered result back to original size
+        const outputData = new Uint8ClampedArray(originalWidth * originalHeight * 4);
+        
+        for (let y = 0; y < originalHeight; y++) {
+            for (let x = 0; x < originalWidth; x++) {
+                // Find which downsampled pixel this corresponds to
+                const downsampledX = Math.floor(x / ditherScale);
+                const downsampledY = Math.floor(y / ditherScale);
+                
+                if (downsampledX < downsampledWidth && downsampledY < downsampledHeight) {
+                    const downsampledIndex = (downsampledY * downsampledWidth + downsampledX) * 4;
+                    const outputIndex = (y * originalWidth + x) * 4;
+                    
+                    outputData[outputIndex] = Math.round(Math.max(0, Math.min(255, downsampledData[downsampledIndex])));
+                    outputData[outputIndex + 1] = Math.round(Math.max(0, Math.min(255, downsampledData[downsampledIndex + 1])));
+                    outputData[outputIndex + 2] = Math.round(Math.max(0, Math.min(255, downsampledData[downsampledIndex + 2])));
+                    outputData[outputIndex + 3] = Math.round(Math.max(0, Math.min(255, downsampledData[downsampledIndex + 3])));
+                }
+            }
+        }
+        
+        return new ImageData(outputData, originalWidth, originalHeight);
+    }
+    
+    function applyOrderedDither(imageData, palette, strength, bayerMatrix, isLocked) {
+        const originalWidth = imageData.width;
+        const originalHeight = imageData.height;
+        const ditherScale = state.ditherScale || 1;
+        
+        // Step 1: Downscale the image for dithering
+        const downsampledWidth = Math.max(1, Math.floor(originalWidth / ditherScale));
+        const downsampledHeight = Math.max(1, Math.floor(originalHeight / ditherScale));
+        
+        // Create downsampled image data
+        const downsampledData = new Float32Array(downsampledWidth * downsampledHeight * 4);
+        
+        // Downsample by averaging pixels in each ditherScale x ditherScale block
+        for (let y = 0; y < downsampledHeight; y++) {
+            for (let x = 0; x < downsampledWidth; x++) {
+                let r = 0, g = 0, b = 0, a = 0, count = 0;
+                
+                // Average pixels in the block
+                for (let dy = 0; dy < ditherScale; dy++) {
+                    for (let dx = 0; dx < ditherScale; dx++) {
+                        const srcX = x * ditherScale + dx;
+                        const srcY = y * ditherScale + dy;
+                        
+                        if (srcX < originalWidth && srcY < originalHeight) {
+                            const srcIndex = (srcY * originalWidth + srcX) * 4;
+                            r += imageData.data[srcIndex];
+                            g += imageData.data[srcIndex + 1];
+                            b += imageData.data[srcIndex + 2];
+                            a += imageData.data[srcIndex + 3];
+                            count++;
+                        }
+                    }
+                }
+                
+                if (count > 0) {
+                    const downsampledIndex = (y * downsampledWidth + x) * 4;
+                    downsampledData[downsampledIndex] = r / count;
+                    downsampledData[downsampledIndex + 1] = g / count;
+                    downsampledData[downsampledIndex + 2] = b / count;
+                    downsampledData[downsampledIndex + 3] = a / count;
+                }
+            }
+        }
+        
+        // Step 2: Apply ordered dithering on the downsampled image
+        const n = bayerMatrix.length;
+        const bayerFactor = 255 / (n * n);
+        const fullPalette = state.quantizedPalette;
+
+        const selectedColorSet = new Set();
+        if (isLocked && fullPalette && fullPalette.length > 0) {
+            state.selectedFreeColors.forEach(colorStr => selectedColorSet.add(colorStr));
+            state.selectedPaidColors.forEach(colorStr => selectedColorSet.add(colorStr));
+        }
+
+        // Apply ordered dithering on downsampled data
+        for (let y = 0; y < downsampledHeight; y++) {
+            for (let x = 0; x < downsampledWidth; x++) {
+                const i = (y * downsampledWidth + x) * 4;
+                const oldColor = [downsampledData[i], downsampledData[i+1], downsampledData[i+2]];
+                const originalAlpha = downsampledData[i+3]; // 保存原始透明度
+
+                // 如果原始像素是透明的，保持透明
+                if (originalAlpha < 128) { // 透明度阈值
+                    downsampledData[i] = 0;
+                    downsampledData[i+1] = 0;
+                    downsampledData[i+2] = 0;
+                    downsampledData[i+3] = 0; // 保持透明
+                    continue;
+                }
+
+                if (isLocked && fullPalette && fullPalette.length > 0) {
+                    // 首先在选中的颜色中查找最接近的颜色
+                    const selectedColorsArray = Array.from(selectedColorSet).map(colorStr => JSON.parse(colorStr));
+                    if (selectedColorsArray.length > 0) {
+                        const closestSelectedColor = findClosestColor(oldColor, selectedColorsArray);
+                        const originalQuantizedColor = findClosestColor(oldColor, fullPalette);
+                        
+                        // 检查原始量化颜色是否在选中的颜色集合中
+                        if (!selectedColorSet.has(JSON.stringify(originalQuantizedColor))) {
+                            downsampledData[i] = 0;
+                            downsampledData[i+1] = 0;
+                            downsampledData[i+2] = 0;
+                            downsampledData[i+3] = 0; // Make completely transparent
+                            continue; 
+                        }
+                    } else {
+                        // 如果没有选中任何颜色，则将像素设为透明
+                        downsampledData[i] = 0;
+                        downsampledData[i+1] = 0;
+                        downsampledData[i+2] = 0;
+                        downsampledData[i+3] = 0;
+                        continue;
+                    }
+                }
+
+                const threshold = (bayerMatrix[y % n][x % n] - n*n/2) * bayerFactor * strength * 0.2;
+                const r = downsampledData[i] + threshold;
+                const g = downsampledData[i+1] + threshold;
+                const b = downsampledData[i+2] + threshold;
+                const closest = findClosestColor([r, g, b], palette);
+                downsampledData[i] = closest[0];
+                downsampledData[i+1] = closest[1];
+                downsampledData[i+2] = closest[2];
+                downsampledData[i+3] = originalAlpha; // 保持原始透明度而不是强制设为255
+            }
+        }
+
+        // Step 3: Upscale the dithered result back to original size
+        const outputData = new Uint8ClampedArray(originalWidth * originalHeight * 4);
+        
+        for (let y = 0; y < originalHeight; y++) {
+            for (let x = 0; x < originalWidth; x++) {
+                // Find which downsampled pixel this corresponds to
+                const downsampledX = Math.floor(x / ditherScale);
+                const downsampledY = Math.floor(y / ditherScale);
+                
+                if (downsampledX < downsampledWidth && downsampledY < downsampledHeight) {
+                    const downsampledIndex = (downsampledY * downsampledWidth + downsampledX) * 4;
+                    const outputIndex = (y * originalWidth + x) * 4;
+                    
+                    outputData[outputIndex] = Math.round(Math.max(0, Math.min(255, downsampledData[downsampledIndex])));
+                    outputData[outputIndex + 1] = Math.round(Math.max(0, Math.min(255, downsampledData[downsampledIndex + 1])));
+                    outputData[outputIndex + 2] = Math.round(Math.max(0, Math.min(255, downsampledData[downsampledIndex + 2])));
+                    outputData[outputIndex + 3] = Math.round(Math.max(0, Math.min(255, downsampledData[downsampledIndex + 3])));
+                }
+            }
+        }
+        
+        return new ImageData(outputData, originalWidth, originalHeight);
+    }
+
+    // --- Start the app ---
+    init();
+});
+</script>
+
+</body>
+</html>
